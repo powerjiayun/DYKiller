@@ -12,7 +12,7 @@
 //    Clear 浅色不染色，深色沿用 DKGlassTintForStyle 的黑色 30% 染色。
 //
 //  · 玻璃自身必须有有效圆角，宿主 masksToBounds 只是硬裁、不会给玻璃折射与高光。
-//    顶部半径取槽位实时 layer.cornerRadius 作为同心圆角下限；输入框用 capsule。
+//    顶部半径取槽位实时 layer.cornerRadius 作为同心圆角下限；输入框直接取槽位半径。
 //
 //  · 新建时 effect=nil 挂载，再在转场协调器或短动画中写入 effect，走系统 materialize；
 //    禁止用 alpha 淡入（UIVisualEffectView 文档：alpha < 1 会失真甚至不显示）。
@@ -25,7 +25,7 @@
 //    列表整段重叠，只清成透明会直接看见评论行；而玻璃叠玻璃是一整块肉眼可见的亮度台阶
 //    （实测见 docs/comment-panel-liquid-glass.md）。让位只让「能证明被盖住」的那一段，
 //    判据不成立一律回满幅，不会留洞；输入区盖到槽位顶边之上时主面板玻璃整块隐藏。
-//    输入框保持独立胶囊，不使用 UIGlassContainerEffect（嵌套会被合并成同一形状）。
+//    输入框保持独立一块，不使用 UIGlassContainerEffect（嵌套会被合并成同一形状）。
 //
 //  · 小表情栏住在 UITextEffectsWindow 里，够不着也不必够——它的矩形正好落在输入区玻璃之内，
 //    只清掉自己的不透明底色，透出来的就是同一块玻璃。
@@ -333,8 +333,8 @@ static void DKEnsureBackmost(UIView *slot, UIView *glass) {
 typedef NS_ENUM(NSUInteger, DKGlassShape) {
     // 上圆下方：主面板；顶部半径跟槽位实时 cornerRadius。
     DKGlassShapeTopRounded = 0,
-    // 正圆胶囊：输入框那枚控件。
-    DKGlassShapeCapsule,
+    // 跟随槽位实时 cornerRadius：输入框那枚控件。常驻态它的半径正好是半高，本来就是胶囊。
+    DKGlassShapeField,
     // 输入栏容器，平角：它与主面板玻璃上下拼接，顶边给圆角会在两角露出原始视频。
     DKGlassShapeBarFlat,
     // 输入栏容器，上圆下方：艾特 / 表情面板把输入区顶出主面板之后，顶边成了露在视频上的自由边，
@@ -399,8 +399,14 @@ static void DKApplyGlassShape(UIVisualEffectView *glass, UIView *slot, DKGlassSh
             [UICornerConfiguration configurationWithUniformRadius:[UICornerRadius fixedRadius:0.0]];
         return;
     }
-    if (shape == DKGlassShapeCapsule) {
-        glass.cornerConfiguration = [UICornerConfiguration capsuleConfiguration];
+    // 输入框：跟随抖音写在槽位上的圆角，不写死 capsule。抖音恒写 18——常驻 36pt 高时它等于半高、
+    // 观感就是胶囊；加图或多行涨到 124pt 时它是圆角矩形。而文字与图片缩略图是槽位的**兄弟视图**，
+    // 画在玻璃上面、不受槽位裁剪，写死 capsule 会把两侧收进 62pt，把它们甩到玻璃外面。
+    if (shape == DKGlassShapeField) {
+        CGFloat radius = slot.layer.cornerRadius;
+        glass.cornerConfiguration = radius > 0.0
+            ? [UICornerConfiguration configurationWithUniformRadius:[UICornerRadius fixedRadius:radius]]
+            : [UICornerConfiguration capsuleConfiguration];
         return;
     }
 
@@ -744,8 +750,8 @@ static void DKSyncInputGlass(UIView *container) API_AVAILABLE(ios(26.0)) {
     UIView *field = DKInputFieldSlot(container);
     if (!field) return;
 
-    // 胶囊不用 UIGlassContainerEffect：嵌套会被合并成同一形状。
-    UIVisualEffectView *glass = (UIVisualEffectView *)DKAttachGlass(field, DKGlassShapeCapsule, YES);
+    // 输入框不用 UIGlassContainerEffect：嵌套会被合并成同一形状。
+    UIVisualEffectView *glass = (UIVisualEffectView *)DKAttachGlass(field, DKGlassShapeField, YES);
     if (!glass) return;
     gLastFieldSlot = field;
     if (!CGRectEqualToRect(glass.frame, field.bounds)) glass.frame = field.bounds;

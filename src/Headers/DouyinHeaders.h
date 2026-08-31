@@ -179,6 +179,11 @@
 
 #pragma mark - 分享面板功能组用到的类
 
+// DUX 底栏弹层的通用基类。分享面板容器与分享评论面板（评论长按面板）都从它派生，
+// 后者的类名带点、Logos 挂不上，只能挂基类再按类名判定。
+@interface DUXContentSheet : UIViewController
+@end
+
 // DUX 底栏弹层外壳。contentView 是带 20pt 顶圆角的 DUXVisualEffectView，目前几乎不模糊。
 @interface AWESharePanelContainerViewController : UIViewController
 @end
@@ -193,6 +198,11 @@
 @property (nonatomic, strong) UIImageView *smallImageView;
 - (void)updateWithViewModel:(id)viewModel bigFontAdapter:(id)adapter;
 - (void)updateImageViewWithViewModel:(id)viewModel;
+@end
+
+// 分享评论面板里「复制该评论」「收藏」那种行。白卡片底不是 backgroundColor，
+// 而是行内一层非视图 CALayer（ivar contentShapeLayer），整段 section 拼成一张卡。
+@interface CommentLongPressPanelNormalBaseCell : UICollectionViewCell
 @end
 
 // 键盘拉起后挂在输入覆盖层下方；setTabBackgroundColor: 会重刷底色。
